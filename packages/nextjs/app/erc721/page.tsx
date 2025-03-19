@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { AllNfts } from "./components/AllNfts";
 import { MyNfts } from "./components/MyNfts";
 import { SquareHeatmap } from "./components/drawNFT";
@@ -16,6 +16,40 @@ const ERC721: NextPage = () => {
 
   const { writeContractAsync: writeSE2TokenAsync } = useScaffoldWriteContract("SE2NFT");
 
+  const svgRef = useRef<SVGSVGElement | null>(null);
+
+  const encodeSvgToBase64 = (svg: string) => {
+    const encoded = btoa(unescape(encodeURIComponent(svg)));
+    return encoded;
+  };
+
+  const handleMint = async (toAddress: string) => {
+    if (svgRef.current) {
+      const rawSvg = svgRef.current;
+      const svgString = new XMLSerializer().serializeToString(rawSvg);
+      try {
+        // Send the raw SVG to the API to handle IPFS upload and metadata creation
+        const response = await fetch("/api/upload-to-ipfs", {
+          method: "POST",
+          headers: { "Content-Type": "application/text" },
+          body: JSON.stringify({ svg: svgString }),
+        });
+  
+        const { metadataUrl } = await response.json(); // Get the IPFS URL for metadata
+  
+        // Now mint the token with the metadata URL
+        await writeSE2TokenAsync({
+          functionName: "mintItem",
+          args: [toAddress, metadataUrl],
+        });
+  
+        console.log("Minted successfully with token URI:", metadataUrl);
+      } catch (e) {
+        console.error("Error while minting token", e);
+      }
+    }
+  };
+
   return (
     <>
       <div className="flex items-center flex-col flex-grow pt-10">
@@ -29,35 +63,15 @@ const ERC721: NextPage = () => {
           </div>
 
           <div className="divider my-0" />
-
-          {/* <h2 className="text-3xl font-bold mt-4">Interact with the NFT</h2>
-
-          <div>
-            <p>Below you can mint an NFT for yourself or to another address.</p>
-            <p>
-              You can see your balance and your NFTs, and below that, you can see the total supply and all the NFTs
-              minted.
-            </p>
-            <p>
-              Check the code under <em>packages/nextjs/app/erc721</em> to learn more about how to interact with the
-              ERC721 contract.
-            </p>
-          </div> */}
         </div>
 
         {connectedAddress ? (
           <div className="flex flex-col justify-center items-center bg-base-300 w-full mt-8 px-8 pt-6 pb-12">
-            <SquareHeatmap />
+            <SquareHeatmap svgRef={svgRef}/>
             <div className="flex justify-center items-center space-x-2 flex-col sm:flex-row mb-2">
               <button
                 className="btn btn-accent text-lg px-12 mt-2"
-                onClick={async () => {
-                  try {
-                    await writeSE2TokenAsync({ functionName: "mintItem", args: [connectedAddress] });
-                  } catch (e) {
-                    console.error("Error while minting token", e);
-                  }
-                }}
+                onClick={() => handleMint(connectedAddress)}
               >
                 Mint token to your address
               </button>
@@ -74,14 +88,7 @@ const ERC721: NextPage = () => {
                 <button
                   className="btn btn-primary text-lg px-12 mt-2"
                   disabled={!toAddress}
-                  onClick={async () => {
-                    try {
-                      await writeSE2TokenAsync({ functionName: "mintItem", args: [toAddress] });
-                      setToAddress("");
-                    } catch (e) {
-                      console.error("Error while minting token", e);
-                    }
-                  }}
+                  onClick={() => handleMint(toAddress)}
                 >
                   Mint
                 </button>

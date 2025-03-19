@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, RefObject} from "react";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import { Group } from "@visx/group";
 import { HeatmapCircle } from "@visx/heatmap";
@@ -87,7 +87,7 @@ const getDailyTxCounts = async (walletAddress: string | undefined, year: number)
   return txCounts;
 };
 
-export const SquareHeatmap = () => {
+export const SquareHeatmap = ({ svgRef }: { svgRef: RefObject<SVGSVGElement | null> }) => {
   const { address: connectedAddress } = useAccount();
   const [txCounts, setTxCounts] = useState<HeatmapData[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -181,7 +181,7 @@ export const SquareHeatmap = () => {
           <span className="loading loading-spinner loading-lg"></span>
         </div>
       ) : (
-        <svg width={width} height={height} fill={background}>
+        <svg ref={svgRef} width={width} height={height} fill={background}>
           <rect x={0} y={0} width={width} height={height} rx={14} fill={background} />
           <Group>
             <HeatmapCircle
