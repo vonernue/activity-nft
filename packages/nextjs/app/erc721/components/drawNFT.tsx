@@ -27,9 +27,56 @@ interface HeatmapData {
   count: number;
 }
 
+interface BlockData {
+  network: string;
+  block: {
+    number: number;
+    timestamp: string;
+  }
+}
+
 const config = {
   apiKey: scaffoldConfig.alchemyApiKey, // Replace with your Alchemy API key.
-  network: Network.LINEA_MAINNET, // Replace with your network.
+  network: Network.ETH_MAINNET, // Replace with your network.
+};
+
+const getBlockByTimestamp = async (timestamp: string): Promise<BlockData | undefined> => {
+  const apiKey = scaffoldConfig.alchemyApiKey;
+  if (!apiKey) {
+    console.error('API key is missing in the environment variables.');
+    return;
+  }
+
+  const url = `https://api.g.alchemy.com/data/v1/${apiKey}/utility/blocks/by-timestamp?networks=eth-mainnet&timestamp=${encodeURIComponent(timestamp)}&direction=AFTER`;
+
+  const options = {
+    method: 'GET',
+    headers: {
+      accept: 'application/json',
+    },
+  };
+
+  try {
+    const response = await fetch(url, options);
+    if (!response.ok) {
+      throw new Error(`Error: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log(data)
+    const blockData: BlockData = {
+      network: 'eth-mainnet', // Static network or dynamic based on response if needed
+      block: {
+        number: data.data[0].block.number,
+        timestamp: data.data[0].block.timestamp,
+      },
+    };
+
+    console.log('Block data:', blockData);
+    return blockData;
+  } catch (err) {
+    console.error('Error fetching block by timestamp:', err);
+  }
 };
 
 const getDailyTxCounts = async (walletAddress: string | undefined, year: number) => {
@@ -41,10 +88,11 @@ const getDailyTxCounts = async (walletAddress: string | undefined, year: number)
   const start = new Date(`${year}-01-01T00:00:00Z`);
   const end = new Date(`${year}-12-31T23:59:59Z`);
 
+  const startBlock = await getBlockByTimestamp(start.toISOString());
+  const endBlock = await getBlockByTimestamp(end.toISOString());
+  
   const dates = eachDayOfInterval({ start, end });
-
   const txCounts: { date: string; count: number }[] = [];
-
   const txs: any[] = [];
 
   let init = true;
@@ -52,7 +100,8 @@ const getDailyTxCounts = async (walletAddress: string | undefined, year: number)
 
   while (init || newPageKey) {
     const { transfers, pageKey } = await alchemy.core.getAssetTransfers({
-      fromBlock: "0x0",
+      fromBlock: '0x' + startBlock?.block.number.toString(16),
+      toBlock: '0x' + endBlock?.block.number.toString(16),
       fromAddress: walletAddress,
       category: [
         AssetTransfersCategory.EXTERNAL,
@@ -63,6 +112,7 @@ const getDailyTxCounts = async (walletAddress: string | undefined, year: number)
       withMetadata: true,
       order: SortingOrder.ASCENDING,
     });
+    console.log(pageKey)
     txs.push(...transfers);
     newPageKey = pageKey;
     init = false;
@@ -88,7 +138,8 @@ const getDailyTxCounts = async (walletAddress: string | undefined, year: number)
 };
 
 export const SquareHeatmap = ({ svgRef }: { svgRef: RefObject<SVGSVGElement | null> }) => {
-  const { address: connectedAddress } = useAccount();
+  // const { address: connectedAddress } = useAccount();
+  const connectedAddress = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045";
   const [txCounts, setTxCounts] = useState<HeatmapData[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
