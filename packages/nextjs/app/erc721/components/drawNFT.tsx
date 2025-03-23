@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, RefObject} from "react";
+import React, { RefObject, useEffect, useState } from "react";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import { Group } from "@visx/group";
 import { HeatmapCircle } from "@visx/heatmap";
@@ -11,8 +11,12 @@ import { eachDayOfInterval, format } from "date-fns";
 import { useAccount } from "wagmi";
 import scaffoldConfig from "~~/scaffold.config";
 
-const hot1 = "#77312f";
-const hot2 = "#f33d15";
+const eth1 = "#3C3C3D";
+const eth2 = "#8C8C8C";
+const op1 = "#77312f";
+const op2 = "#f33d15";
+const arb1 = "#28A0F0";
+const arb2 = "#1A2B6B";
 const background = "#28272c";
 
 function max<Datum>(data: Datum[], value: (d: Datum) => number): number {
@@ -32,27 +36,24 @@ interface BlockData {
   block: {
     number: number;
     timestamp: string;
-  }
+  };
 }
 
-const config = {
-  apiKey: scaffoldConfig.alchemyApiKey, // Replace with your Alchemy API key.
-  network: Network.ETH_MAINNET, // Replace with your network.
-};
-
-const getBlockByTimestamp = async (timestamp: string): Promise<BlockData | undefined> => {
+const getBlockByTimestamp = async (timestamp: string, network: string): Promise<BlockData | undefined> => {
   const apiKey = scaffoldConfig.alchemyApiKey;
   if (!apiKey) {
-    console.error('API key is missing in the environment variables.');
+    console.error("API key is missing in the environment variables.");
     return;
   }
 
-  const url = `https://api.g.alchemy.com/data/v1/${apiKey}/utility/blocks/by-timestamp?networks=eth-mainnet&timestamp=${encodeURIComponent(timestamp)}&direction=AFTER`;
+  console.log(network);
+
+  const url = `https://api.g.alchemy.com/data/v1/${apiKey}/utility/blocks/by-timestamp?networks=${network}&timestamp=${encodeURIComponent(timestamp)}&direction=AFTER`;
 
   const options = {
-    method: 'GET',
+    method: "GET",
     headers: {
-      accept: 'application/json',
+      accept: "application/json",
     },
   };
 
@@ -63,34 +64,49 @@ const getBlockByTimestamp = async (timestamp: string): Promise<BlockData | undef
     }
 
     const data = await response.json();
-    console.log(data)
+    console.log(data);
     const blockData: BlockData = {
-      network: 'eth-mainnet', // Static network or dynamic based on response if needed
+      network: "eth-mainnet", // Static network or dynamic based on response if needed
       block: {
         number: data.data[0].block.number,
         timestamp: data.data[0].block.timestamp,
       },
     };
 
-    console.log('Block data:', blockData);
+    console.log("Block data:", blockData);
     return blockData;
   } catch (err) {
-    console.error('Error fetching block by timestamp:', err);
+    console.error("Error fetching block by timestamp:", err);
   }
 };
 
-const getDailyTxCounts = async (walletAddress: string | undefined, year: number) => {
+const getDailyTxCounts = async (walletAddress: string | undefined, year: number, network: Network) => {
   if (!walletAddress) {
     return [];
   }
+  const config = {
+    apiKey: scaffoldConfig.alchemyApiKey, // Replace with your Alchemy API key.
+    network: network, // Replace with your network.
+  };
+
+  console.log(network);
+
   const alchemy = new Alchemy(config);
 
   const start = new Date(`${year}-01-01T00:00:00Z`);
   const end = new Date(`${year}-12-31T23:59:59Z`);
 
-  const startBlock = await getBlockByTimestamp(start.toISOString());
-  const endBlock = await getBlockByTimestamp(end.toISOString());
-  
+  let startBlock = 18908895;
+  let endBlock = 21525890;
+
+  if (network == Network.OPT_MAINNET) {
+    startBlock = 114234212;
+    endBlock = 130045411;
+  } else if (network == Network.ARB_MAINNET) {
+    startBlock = 0;
+    endBlock = 290687172;
+  }
+
   const dates = eachDayOfInterval({ start, end });
   const txCounts: { date: string; count: number }[] = [];
   const txs: any[] = [];
@@ -100,8 +116,8 @@ const getDailyTxCounts = async (walletAddress: string | undefined, year: number)
 
   while (init || newPageKey) {
     const { transfers, pageKey } = await alchemy.core.getAssetTransfers({
-      fromBlock: '0x' + startBlock?.block.number.toString(16),
-      toBlock: '0x' + endBlock?.block.number.toString(16),
+      fromBlock: "0x" + startBlock.toString(16),
+      toBlock: "0x" + endBlock.toString(16),
       fromAddress: walletAddress,
       category: [
         AssetTransfersCategory.EXTERNAL,
@@ -112,7 +128,6 @@ const getDailyTxCounts = async (walletAddress: string | undefined, year: number)
       withMetadata: true,
       order: SortingOrder.ASCENDING,
     });
-    console.log(pageKey)
     txs.push(...transfers);
     newPageKey = pageKey;
     init = false;
@@ -137,23 +152,41 @@ const getDailyTxCounts = async (walletAddress: string | undefined, year: number)
   return txCounts;
 };
 
-export const SquareHeatmap = ({ svgRef }: { svgRef: RefObject<SVGSVGElement | null> }) => {
+export const SquareHeatmap = ({
+  svgRef,
+  networkName,
+}: {
+  svgRef: RefObject<SVGSVGElement | null>;
+  networkName: string;
+}) => {
   const { address: connectedAddress } = useAccount();
   // const connectedAddress = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045";
   const [txCounts, setTxCounts] = useState<HeatmapData[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [network, setNetwork] = useState<Network>(Network.ETH_MAINNET);
 
   const dataYear = 2024;
   const currentYear = dataYear;
 
   // const connectedAddress = "0x3ddfa8ec3052539b6c9549f12cea2c295cff5296";
+  useEffect(() => {
+    if (networkName == "ETH") {
+      setNetwork(Network.ETH_MAINNET);
+    } else if (networkName == "Optimism") {
+      setNetwork(Network.OPT_MAINNET);
+    } else if (networkName == "Arbitrum") {
+      setNetwork(Network.ARB_MAINNET);
+    } else {
+      setNetwork(Network.ETH_MAINNET);
+    }
+  }, [networkName]);
 
   useEffect(() => {
     const fetchData = async () => {
       if (connectedAddress) {
         setLoading(true);
         try {
-          const data = await getDailyTxCounts(connectedAddress, currentYear);
+          const data = await getDailyTxCounts(connectedAddress, currentYear, network);
           console.log(data);
           setTxCounts(data);
         } catch (error) {
@@ -165,7 +198,7 @@ export const SquareHeatmap = ({ svgRef }: { svgRef: RefObject<SVGSVGElement | nu
     };
 
     fetchData();
-  }, [connectedAddress, currentYear]);
+  }, [connectedAddress, currentYear, network]);
 
   // Create the grid for the heatmap (12 rows for months, 12 columns for blocks in the month)
   const gridData = Array(12)
@@ -217,9 +250,15 @@ export const SquareHeatmap = ({ svgRef }: { svgRef: RefObject<SVGSVGElement | nu
 
   const colorMax = max(gridData, d => max(bins(d), count));
   const circleColorScale = scaleLinear<string>({
-    range: [hot1, hot2],
+    range: [eth1, eth2],
     domain: [0, colorMax],
   });
+  if (networkName == "Optimism") {
+    circleColorScale.range([op1, op2]);
+  } else if (networkName == "Arbitrum") {
+    circleColorScale.range([arb1, arb2]);
+  }
+
   const opacityScale = scaleLinear<number>({
     range: [0.1, 1],
     domain: [0, colorMax],
