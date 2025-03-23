@@ -138,8 +138,8 @@ const getDailyTxCounts = async (walletAddress: string | undefined, year: number)
 };
 
 export const SquareHeatmap = ({ svgRef }: { svgRef: RefObject<SVGSVGElement | null> }) => {
-  // const { address: connectedAddress } = useAccount();
-  const connectedAddress = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045";
+  const { address: connectedAddress } = useAccount();
+  // const connectedAddress = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045";
   const [txCounts, setTxCounts] = useState<HeatmapData[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
