@@ -1,4 +1,6 @@
 # On-Chain Activity NFT
+## `.env` setup
+To prevent rate-limiting of Alchemy API, you may need to create a `.env` from `packages/frontend/.env.example` and add your Alchemy API key.
 ## Interact with Testnet
 ### Install Dependencies
 ```bash
