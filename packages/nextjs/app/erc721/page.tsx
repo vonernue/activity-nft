@@ -107,14 +107,14 @@ const ERC721: NextPage = () => {
                 </li>
               </ul>
             </details>
-            <SquareHeatmap svgRef={svgRef} networkName={networkType} />
+            <SquareHeatmap svgRef={svgRef} networkName={networkType} refAddress={toAddress}/>
             <div className="flex justify-center items-center space-x-2 flex-col sm:flex-row mb-2">
               <button className="btn btn-accent text-lg px-12 mt-2" onClick={() => handleMint(connectedAddress)}>
                 Mint token to your address
               </button>
             </div>
             <div className="flex flex-col bg-base-100 px-10 py-10 text-center items-center w-full md:w-2/4 rounded-3xl mt-5 mb-8">
-              <h3 className="text-2xl font-bold">Mint token to another address</h3>
+              <h3 className="text-2xl font-bold">Mint NFT of another address</h3>
               <div className="flex flex-col items-center justify-between w-full lg:w-3/5 px-2 mt-4">
                 <div className="font-bold mb-2">To:</div>
                 <div>
@@ -125,7 +125,8 @@ const ERC721: NextPage = () => {
                 <button
                   className="btn btn-primary text-lg px-12 mt-2"
                   disabled={!toAddress}
-                  onClick={() => handleMint(toAddress)}
+                  // onClick={() => handleMint(toAddress)}
+                  onClick={() => handleMint(connectedAddress)}
                 >
                   Mint
                 </button>

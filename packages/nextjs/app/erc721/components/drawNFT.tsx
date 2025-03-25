@@ -8,8 +8,9 @@ import { Bin, Bins } from "@visx/mock-data/lib/generators/genBins";
 import { scaleBand, scaleLinear } from "@visx/scale";
 import { Alchemy, AssetTransfersCategory, Network, SortingOrder } from "alchemy-sdk";
 import { eachDayOfInterval, format } from "date-fns";
-import { useAccount } from "wagmi";
+import { useAccount, useConnect } from "wagmi";
 import scaffoldConfig from "~~/scaffold.config";
+import { isAddress } from "viem";
 
 const eth1 = "#3C3C3D";
 const eth2 = "#8C8C8C";
@@ -155,11 +156,15 @@ const getDailyTxCounts = async (walletAddress: string | undefined, year: number,
 export const SquareHeatmap = ({
   svgRef,
   networkName,
+  refAddress
 }: {
   svgRef: RefObject<SVGSVGElement | null>;
   networkName: string;
+  refAddress: string;
 }) => {
-  const { address: connectedAddress } = useAccount();
+  // const connectedAddress = refAddress ? refAddress : useAccount().address;
+  const { address: oriAddress } = useAccount();
+  const [connectedAddress, setConnectedAddress] = useState<string | undefined>("");
   // const connectedAddress = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045";
   const [txCounts, setTxCounts] = useState<HeatmapData[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -180,6 +185,14 @@ export const SquareHeatmap = ({
       setNetwork(Network.ETH_MAINNET);
     }
   }, [networkName]);
+
+  useEffect(() => {
+    if(isAddress(refAddress)) {
+      setConnectedAddress(refAddress);
+    } else {
+      setConnectedAddress(oriAddress);
+    }
+  })
 
   useEffect(() => {
     const fetchData = async () => {
@@ -265,46 +278,49 @@ export const SquareHeatmap = ({
   });
 
   return (
-    <div className="square-heatmap" style={{ width, height }}>
-      {loading ? (
-        <div className="flex justify-center items-center mt-10">
-          <span className="loading loading-spinner loading-lg"></span>
-        </div>
-      ) : (
-        <svg ref={svgRef} width={width} height={height} fill={background}>
-          <rect x={0} y={0} width={width} height={height} rx={14} fill={background} />
-          <Group>
-            <HeatmapCircle
-              data={gridData}
-              xScale={d => xScale(d) ?? 0}
-              yScale={d => yScale(d) ?? 0}
-              colorScale={circleColorScale}
-              opacityScale={opacityScale}
-              radius={radius}
-              gap={2}
-            >
-              {heatmap =>
-                heatmap.map(heatmapBins =>
-                  heatmapBins.map(bin => (
-                    <circle
-                      key={`heatmap-circle-${bin.row}-${bin.column}`}
-                      className="visx-heatmap-circle"
-                      cx={bin.cx}
-                      cy={bin.cy}
-                      r={bin.r}
-                      fill={bin.color}
-                      fillOpacity={bin.opacity}
-                    />
-                  )),
-                )
-              }
-            </HeatmapCircle>
-          </Group>
+    <div>
+      <p>target: {connectedAddress}</p>
+      <div className="square-heatmap" style={{ width, height }}>
+        {loading ? (
+          <div className="flex justify-center items-center mt-10">
+            <span className="loading loading-spinner loading-lg"></span>
+          </div>
+        ) : (
+          <svg ref={svgRef} width={width} height={height} fill={background}>
+            <rect x={0} y={0} width={width} height={height} rx={14} fill={background} />
+            <Group>
+              <HeatmapCircle
+                data={gridData}
+                xScale={d => xScale(d) ?? 0}
+                yScale={d => yScale(d) ?? 0}
+                colorScale={circleColorScale}
+                opacityScale={opacityScale}
+                radius={radius}
+                gap={2}
+              >
+                {heatmap =>
+                  heatmap.map(heatmapBins =>
+                    heatmapBins.map(bin => (
+                      <circle
+                        key={`heatmap-circle-${bin.row}-${bin.column}`}
+                        className="visx-heatmap-circle"
+                        cx={bin.cx}
+                        cy={bin.cy}
+                        r={bin.r}
+                        fill={bin.color}
+                        fillOpacity={bin.opacity}
+                      />
+                    )),
+                  )
+                }
+              </HeatmapCircle>
+            </Group>
 
-          <AxisBottom scale={xScale} top={height} />
-          <AxisLeft scale={yScale} />
-        </svg>
-      )}
+            <AxisBottom scale={xScale} top={height} />
+            <AxisLeft scale={yScale} />
+          </svg>
+        )}
+      </div>
     </div>
   );
 };
